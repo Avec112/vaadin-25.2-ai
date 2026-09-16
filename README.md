@@ -47,7 +47,16 @@ spring.ai.ollama.base-url=http://localhost:11434
 spring.ai.ollama.chat.model=mistral
 ```
 
-> There is **no default model name** — if `spring.ai.ollama.chat.model` is left commented out, no model is configured and the chat will not work. Uncomment exactly one of the model lines (`mistral`, `deepseek-r1`, or any other model you have pulled).
+If you leave `spring.ai.ollama.chat.model` unset, Spring AI falls back to **`mistral`** (`OllamaChatOptions` defaults to `OllamaModel.MISTRAL`), which is why the chat works out of the box once you have that model pulled.
+
+> **The model must support tool calling.** `AIOrchestrator` always registers a built-in `get_session_context` tool — if you don't call `withContext(...)`, `build()` installs a default context supplier, so the tool is sent on every request. Models without tool support reject it:
+>
+> ```
+> 400 Bad Request from POST http://localhost:11434/api/chat
+> registry.ollama.ai/library/deepseek-r1:latest does not support tools
+> ```
+>
+> **`deepseek-r1` does not work with this chat view** for that reason, even though `ollama run deepseek-r1` works fine in a terminal. Pick a tool-capable model such as `mistral` or `llama3.1:8b`. Check with `ollama show <model>` — the capabilities list must include `tools`.
 
 Free, private, and offline — nothing leaves your machine.
 
