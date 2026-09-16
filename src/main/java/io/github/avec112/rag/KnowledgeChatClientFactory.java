@@ -16,7 +16,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 public class KnowledgeChatClientFactory {
 
     /** How many sections are pulled into the prompt per question. */
-    static final int TOP_K = 4;
+    static final int TOP_K = 8;
 
     /** Below this cosine similarity a section is treated as irrelevant rather than weak evidence. */
     static final double SIMILARITY_THRESHOLD = 0.3;
