@@ -49,7 +49,7 @@ spring.ai.ollama.chat.model=mistral
 
 If you leave `spring.ai.ollama.chat.model` unset, Spring AI falls back to **`mistral`** (`OllamaChatOptions` defaults to `OllamaModel.MISTRAL`), which is why the chat works out of the box once you have that model pulled.
 
-> **The model must support tool calling.** `AIOrchestrator` always registers a built-in `get_session_context` tool — if you don't call `withContext(...)`, `build()` installs a default context supplier, so the tool is sent on every request. Models without tool support reject it:
+> **The model must support tool calling.** `AIOrchestrator` registers a built-in `get_session_context` tool — if you don't call `withMetadata(...)`, `build()` installs a default context supplier, so the tool is sent on every request. Models without tool support reject it:
 >
 > ```
 > 400 Bad Request from POST http://localhost:11434/api/chat
@@ -57,6 +57,16 @@ If you leave `spring.ai.ollama.chat.model` unset, Spring AI falls back to **`mis
 > ```
 >
 > **`deepseek-r1` does not work with this chat view** for that reason, even though `ollama run deepseek-r1` works fine in a terminal. Pick a tool-capable model such as `mistral` or `llama3.1:8b`. Check with `ollama show <model>` — the capabilities list must include `tools`.
+>
+> This is a Vaadin `AIOrchestrator` requirement, **not** a Spring AI one — Spring AI itself talks to tool-less models happily. To use such a model, opt out of the session context tool when building the orchestrator:
+>
+> ```java
+> AIOrchestrator.builder(provider, "You are a helpful assistant.")
+>         .withMetadata(() -> null)   // no get_session_context tool
+>         .withMessageList(messageList)
+>         .withInput(messageInput)
+>         .build();
+> ```
 
 Free, private, and offline — nothing leaves your machine.
 
