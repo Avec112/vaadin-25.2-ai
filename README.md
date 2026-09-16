@@ -169,15 +169,30 @@ of it. `KnowledgeTools` therefore registers two tools on the chat client:
 - `read_document(fileName)` — one whole document, for questions that need the full text rather than
   excerpts, such as summarising it.
 
-Both were verified against a real `qwen3`: asked "There is 5 documents it seems.", the assistant now
-calls `list_documents` and reports all five files with all 31 sections; asked to summarise the employee
-handbook, it calls `read_document`. Note this makes tool support a hard requirement for the chat model
-— though `AIOrchestrator` already required it for its own `get_session_context` tool, so the set of
-usable models is unchanged.
+**Tools alone were not enough, because calling them is the model's decision.** With only the tools
+wired up, `qwen3` answered the listing question correctly when asked cold, but skipped the tool on a
+follow-up — any question that looks answerable from the excerpts already in the window does — and then
+reported four of the five documents, denying that `time-off-policy.md` existed at all. The excerpts it
+held simply came from four files.
 
-One prompt detail earned its place: without an explicit instruction to reproduce the tool's output in
-full, `qwen3` abbreviated the listing to three or four sections per document and blended it with the
-retrieved excerpts. The system prompt now says not to shorten the list or merge it with the excerpts.
+So the document list is now in **every** request: `KnowledgeChatClientFactory.systemPrompt()` appends
+the manifest to the grounding prompt, rendering it with the same `list_documents` tool the model can
+call, so the two can never disagree. The prompt states that the list is authoritative — a document on
+it exists even when no excerpt from it is attached. `read_document` stays a tool because whole
+documents are far too large to sit in every prompt; only the inventory is small enough to always
+include, at roughly 250 tokens per request.
+
+Verified against a real `qwen3`, in one conversation, in this order: "What is the VPN called?" →
+Lighthouse (source: it-security-policy.md); "Which documents do you have?" → all five files with all
+31 sections; "Is time-off-policy.md part of the knowledge base?" → "Yes", with an accurate summary of
+its six sections. That third question is the one that previously got a denial.
+
+Note this makes tool support a hard requirement for the chat model — though `AIOrchestrator` already
+required it for its own `get_session_context` tool, so the set of usable models is unchanged.
+
+One prompt detail earned its place: without an explicit instruction to reproduce the listing in full,
+`qwen3` abbreviated it to three or four sections per document and blended it with the retrieved
+excerpts. The system prompt now says not to shorten the list or merge it with the excerpts.
 
 **Tuning.** `TOP_K` and `SIMILARITY_THRESHOLD` in
 `src/main/java/io/github/avec112/rag/KnowledgeChatClientFactory.java` control how much context is

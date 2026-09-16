@@ -36,11 +36,14 @@ public class KnowledgeChatClientFactory {
 
             The excerpts attached to a question are only the sections retrieved for that question,
             never the whole knowledge base. Never describe them as the complete set of documents.
-            Two tools give you the rest: call list_documents when asked which documents exist, how
-            many there are, or what the knowledge base covers, and call read_document when a
-            question needs a whole document rather than excerpts, such as summarising one.
-            When you list documents, reproduce every document and every section the tool returns.
-            Do not shorten the list, and do not merge it with the attached excerpts.
+            The complete list of documents is given below, and it is authoritative: a document on
+            that list exists even when no excerpt from it is attached to the question, and a document
+            missing from it does not exist. Never say you cannot confirm whether a listed document
+            exists, and never describe the attached excerpts as the full set of documents. When you
+            list documents, reproduce every document and every section, without shortening the list
+            and without merging it with the attached excerpts.
+            Call read_document when a question needs a whole document rather than excerpts, such as
+            summarising one. Call list_documents only if you need the list again.
             """;
 
     private final ChatModel chatModel;
@@ -51,6 +54,20 @@ public class KnowledgeChatClientFactory {
         this.chatModel = chatModel;
         this.vectorStore = vectorStore;
         this.knowledgeTools = knowledgeTools;
+    }
+
+    /**
+     * The grounding prompt with the corpus manifest appended.
+     * <p>
+     * The manifest is not a convenience: whether the model calls {@code list_documents} is its own
+     * decision, and it skips the call whenever a question looks answerable from the excerpts it
+     * already holds - which is exactly what a follow-up naming one file looks like. It then reports
+     * the four or five files those excerpts came from as though they were the whole corpus. Putting
+     * the list in every request makes the inventory present rather than merely available. It is
+     * rendered by the same tool the model can call, so the two can never disagree.
+     */
+    public String systemPrompt() {
+        return "%s%n%s".formatted(SYSTEM_PROMPT, knowledgeTools.listDocuments());
     }
 
     /**

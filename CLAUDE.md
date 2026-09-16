@@ -46,7 +46,11 @@ taking `/chat-bot` and every other view down with it. `KnowledgeTools` registers
 question about the corpus itself ("which documents exist?", "summarise the handbook") is unanswerable
 from excerpts the model only received because they were similar to that question. Both tools return an
 explanatory string rather than throwing when the corpus cannot be read — a tool that throws gives the
-model nothing to act on.
+model nothing to act on. The document list is also appended to every request by
+`KnowledgeChatClientFactory.systemPrompt()`, rendered by that same `list_documents` tool: whether the
+model *calls* a tool is its own decision, and it skips the call whenever the attached excerpts look
+sufficient, which made it deny the existence of documents those excerpts happened not to come from.
+Pass `systemPrompt()` to `AIOrchestrator`, never the bare `SYSTEM_PROMPT` constant.
 
 **Encapsulation boundary.** Repositories and their `@Transactional` boundaries stay package-private (`TaskRepository`); the `@Service` is the only public entry point; views take it via constructor injection. Views themselves are package-private classes.
 

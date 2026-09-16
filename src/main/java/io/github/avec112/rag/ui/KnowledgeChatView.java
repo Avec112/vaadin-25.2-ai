@@ -31,7 +31,7 @@ class KnowledgeChatView extends VerticalLayout {
         // One client per view instance: the client owns the conversation memory.
         var provider = new SpringAILLMProvider(chatClientFactory.create());
 
-        AIOrchestrator.builder(provider, KnowledgeChatClientFactory.SYSTEM_PROMPT)
+        AIOrchestrator.builder(provider, chatClientFactory.systemPrompt())
                 .withAssistantName("Harborlight Assistant")
                 .withMessageList(messageList)
                 .withInput(messageInput)

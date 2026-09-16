@@ -42,6 +42,16 @@ class KnowledgeBaseConfigTest {
     }
 
     @Test
+    void the_assembled_system_prompt_names_every_document_so_the_inventory_never_depends_on_a_tool_call() {
+        assertThat(chatClientFactory.systemPrompt()).contains(
+                "employee-handbook.md",
+                "time-off-policy.md",
+                "it-security-policy.md",
+                "travel-and-expenses.md",
+                "onboarding-guide.md");
+    }
+
+    @Test
     void the_system_prompt_grounds_the_assistant_in_the_documents() {
         assertThat(KnowledgeChatClientFactory.SYSTEM_PROMPT)
                 .contains("Harborlight Systems Inc.")
