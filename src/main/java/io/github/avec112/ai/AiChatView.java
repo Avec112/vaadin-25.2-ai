@@ -24,6 +24,7 @@ public class AiChatView extends VerticalLayout {
         // Create UI components
         var messageList = new MessageList();
         messageList.setSizeFull();
+        messageList.setMarkdown(true);
         var messageInput = new MessageInput();
         messageInput.setWidthFull();
 
@@ -32,7 +33,6 @@ public class AiChatView extends VerticalLayout {
 
         // Wire everything together
         String model = chatModel.getOptions().getModel();
-        model = model != null? model: "Mistral";
         String modelName = StringUtils.capitalize(model);
         AIOrchestrator.builder(provider,
                         "You are a helpful assistant.")
