@@ -43,6 +43,9 @@ class KnowledgeCorpusTest {
         assertThatFactIsUnique("18 weeks of parental leave");
         assertThatFactIsUnique("First Mate");
         assertThatFactIsUnique("USD 0.62 per mile");
+        assertThatFactIsUnique("3 Harborlight Days");
+        assertThatFactIsUnique("USD 68");
+        assertThatFactIsUnique("Tuesday and Thursday are Anchor Days");
     }
 
     private void assertThatFactIsUnique(String fact) {
