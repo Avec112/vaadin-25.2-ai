@@ -16,11 +16,69 @@ mvn spring-boot:run
 
 Maven 3.9+ and JDK 25 are required (the Maven wrapper is not included in this project). The app opens **http://localhost:8080** in your browser automatically; disable that with `vaadin.launch-browser=false` in `src/main/resources/application.properties`.
 
-The first start takes ~30 seconds while Maven downloads dependencies. You'll get a runnable **Task List** app: a data grid (Description / Due Date / Creation Date), a Create button, and an empty-state message. When you see that, you're running.
+The first start takes ~30 seconds while Maven downloads dependencies. The start view is a **Chat Bot** — see [Choose your AI model](#choose-your-ai-model--local-or-cloud) below before you expect it to answer. The side nav also has a **Task List** demo at `/task-list`: a data grid (Description / Due Date / Creation Date), a Create button, and an empty-state message. When you see the nav drawer and those two views, you're running.
 
 > **Port 8080 already in use?** Stop the other process, or set `server.port=8081` in `src/main/resources/application.properties` and open that port instead.
 >
 > **To stop the app:** press `Ctrl+C` in the terminal (or the red Stop button if you launched from your IDE).
+
+---
+
+## Choose your AI model — local or cloud
+
+The start view of this app is a **Chat Bot** backed by [Spring AI](https://docs.spring.io/spring-ai/reference/). Before it can answer anything you have to tell it *which* model to talk to, and that choice is made in `src/main/resources/application.properties`.
+
+The switch is the `spring.ai.model.chat` property: it decides which Spring AI auto-configuration is activated, and therefore which `ChatModel` bean gets injected into `AiChatView`.
+
+### Option A — local model (Ollama)
+
+This is what the project ships with. Install [Ollama](https://ollama.com/), pull a model, and keep it running:
+
+```bash
+ollama pull mistral
+ollama serve
+```
+
+Then in `src/main/resources/application.properties`:
+
+```properties
+spring.ai.model.chat=ollama
+spring.ai.ollama.base-url=http://localhost:11434
+spring.ai.ollama.chat.model=mistral
+```
+
+> There is **no default model name** — if `spring.ai.ollama.chat.model` is left commented out, no model is configured and the chat will not work. Uncomment exactly one of the model lines (`mistral`, `deepseek-r1`, or any other model you have pulled).
+
+Free, private, and offline — nothing leaves your machine.
+
+### Option B — cloud model (OpenAI)
+
+Cloud providers need a **dependency change as well as a property change**. Swap the Ollama starter in `pom.xml` for the OpenAI one:
+
+```xml
+<dependency>
+    <groupId>org.springframework.ai</groupId>
+    <artifactId>spring-ai-starter-model-openai</artifactId>
+</dependency>
+```
+
+Then in `src/main/resources/application.properties`:
+
+```properties
+spring.ai.model.chat=openai
+spring.ai.openai.api-key=${OPENAI_API_KEY}
+spring.ai.openai.chat.model=gpt-5
+```
+
+Export the key in your shell rather than writing it into the file — that way it never ends up in Git:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+> **Keeping both starters on the classpath?** Then `spring.ai.model.chat` is mandatory. Both auto-configurations match when the property is absent, you end up with two `ChatModel` beans, and startup fails because the injection into `AiChatView` is ambiguous.
+
+> The AI components used by the chat view are still experimental, so they are enabled through `src/main/resources/vaadin-featureflags.properties` (`com.vaadin.experimental.aiComponents=true`). Leave that flag in place.
 
 ---
 
