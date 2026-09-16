@@ -119,6 +119,102 @@ export OPENAI_API_KEY=sk-...
 
 ---
 
+## Ask the knowledge base (RAG)
+
+The **Knowledge Base** view at `/knowledge` answers questions about a fictional company,
+**Harborlight Systems Inc.**, whose handbook, time-off policy, IT security policy, travel rules and
+onboarding guide live in `src/main/resources/knowledge/`. At startup each `##` section of those files
+is embedded and stored in an in-memory vector store. When you ask a question, the eight most similar
+sections are retrieved and placed in the prompt before the model answers — retrieval-augmented
+generation, with no fine-tuning and no data leaving your machine.
+
+This needs an embedding model in addition to the chat model, and **you must pull it yourself first**:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+`spring.ai.ollama.init.pull-model-strategy=never` in `application.properties`, deliberately: the
+alternative, `when_missing`, runs its model-existence check during bean initialization with no error
+handling of its own, so with Ollama unreachable it throws at startup and takes the whole app down —
+every view, not just the AI ones. Ingestion was confirmed against a real, locally running Ollama in
+this environment: startup logged `Indexed 31 sections from 5 documents in 1807 ms`.
+
+**The demo.** Ask the same question in `/chat-bot` and in `/knowledge`. The company is invented, so no
+model can know these answers from pretraining — a correct, sourced answer is proof the retrieval
+happened. The table below was captured by driving each view's `ChatClient` directly (the same beans
+the UI uses) against a real, locally running `qwen3` and `nomic-embed-text`:
+
+| Question | `/chat-bot` | `/knowledge` |
+|---|---|---|
+| How many vacation days do employees get? | Hedges, then guesses "between 10–20 vacation days per year" | **27** vacation days per calendar year (source: time-off-policy.md) |
+| What is the VPN called? | Hedges: guesses it might be "a typo, a fictional reference, or a less-known provider" | **Lighthouse** (source: it-security-policy.md) |
+| What is the mileage rate? | Quotes the 2023 US IRS public mileage rate (58.5 cents/mile) instead of Harborlight's own rate | **USD 0.62 per mile** (source: travel-and-expenses.md) |
+| What is the annual bonus scheme? | *(not asked — this question is only exercised in `/knowledge`)* | Says the documents do not specify one and suggests asking HR or your team lead |
+
+All four `/knowledge` answers are exactly what this demo is meant to show: a specific, sourced figure
+the base model could not know, or an honest admission that the documents don't say. The citations are
+literal filenames, matching the system prompt's `(source: time-off-policy.md)` example exactly — see
+`KnowledgeDocumentReader`, which embeds the filename directly into each chunk's text so the model has
+something to cite (`QuestionAnswerAdvisor` sends only `Document::getText` to the model; the source
+metadata by itself never reaches the prompt).
+
+**Questions about the corpus itself need tools, not retrieval.** Similarity search only ever attaches
+the sections closest to the question asked, so "which documents do you have?" used to be answered from
+whatever handful of excerpts happened to be attached — the assistant would confidently report three
+documents when there are five. No amount of tuning fixes that: the other two files were never in front
+of it. `KnowledgeTools` therefore registers two tools on the chat client:
+
+- `list_documents` — every document with its title and section headings.
+- `read_document(fileName)` — one whole document, for questions that need the full text rather than
+  excerpts, such as summarising it.
+
+**Tools alone were not enough, because calling them is the model's decision.** With only the tools
+wired up, `qwen3` answered the listing question correctly when asked cold, but skipped the tool on a
+follow-up — any question that looks answerable from the excerpts already in the window does — and then
+reported four of the five documents, denying that `time-off-policy.md` existed at all. The excerpts it
+held simply came from four files.
+
+So the document list is now in **every** request: `KnowledgeChatClientFactory.systemPrompt()` appends
+the manifest to the grounding prompt, rendering it with the same `list_documents` tool the model can
+call, so the two can never disagree. The prompt states that the list is authoritative — a document on
+it exists even when no excerpt from it is attached. `read_document` stays a tool because whole
+documents are far too large to sit in every prompt; only the inventory is small enough to always
+include, at roughly 250 tokens per request.
+
+Verified against a real `qwen3`, in one conversation, in this order: "What is the VPN called?" →
+Lighthouse (source: it-security-policy.md); "Which documents do you have?" → all five files with all
+31 sections; "Is time-off-policy.md part of the knowledge base?" → "Yes", with an accurate summary of
+its six sections. That third question is the one that previously got a denial.
+
+Note this makes tool support a hard requirement for the chat model — though `AIOrchestrator` already
+required it for its own `get_session_context` tool, so the set of usable models is unchanged.
+
+One prompt detail earned its place: without an explicit instruction to reproduce the listing in full,
+`qwen3` abbreviated it to three or four sections per document and blended it with the retrieved
+excerpts. The system prompt now says not to shorten the list or merge it with the excerpts.
+
+**Tuning.** `TOP_K` and `SIMILARITY_THRESHOLD` in
+`src/main/java/io/github/avec112/rag/KnowledgeChatClientFactory.java` control how much context is
+retrieved. Too high a threshold and good questions retrieve nothing; too low and every question
+retrieves noise. Both were tuned against the demo questions above:
+
+- `TOP_K` is `8`, not the original `4`. With `TOP_K = 4`, the VPN question failed: direct inspection of
+  the vector store showed `it-security-policy.md`'s `## VPN Access` section ranks 7th of 31 by cosine
+  similarity for "What is the Harborlight VPN called?" (score ≈ 0.50), so a window of 4 never reached
+  it regardless of `SIMILARITY_THRESHOLD` — threshold only prunes *within* the selected window, it
+  never enlarges it. Widening to 8 reaches rank 7 and fixed the VPN question, and the other three
+  answers (including the bonus-scheme honest miss) held with no regressions.
+- `SIMILARITY_THRESHOLD` is `0.3`, lowered from `0.5`. On this corpus it is currently inert: every
+  section scores between ≈0.39 and ≈0.57 for the tested queries, so neither value excluded anything.
+  It is kept low deliberately, as headroom for future documents whose best match falls in the 0.3–0.5
+  band.
+
+**Adding your own documents.** Drop a Markdown file with `#` and `##` headings into
+`src/main/resources/knowledge/` and restart. Each `##` section becomes one retrievable chunk.
+
+---
+
 ## Ask your AI assistant about Vaadin (optional)
 
 If you use Claude Code, Cursor, or another AI coding assistant, connect it to the **Vaadin MCP server** so it answers against real Vaadin docs and the exact API of your installed version — instead of guessing from outdated training data.

@@ -28,6 +28,30 @@ There is **no `production` profile**: `vaadin-maven-plugin:build-frontend` is bo
 
 **Package-by-feature.** Each feature is a top-level package under `io.github.avec112` containing its entity, repository, and service, with UI in a nested `ui` subpackage (`examplefeature/` + `examplefeature/ui/`). `base/ui/` holds cross-cutting UI (`MainLayout`, `ViewTitle`). `examplefeature` is scaffolding meant to be deleted once real features exist.
 
+**RAG feature.** `rag/` holds the knowledge base: `KnowledgeDocumentReader` splits
+`src/main/resources/knowledge/*.md` into one document per `##` section, `KnowledgeBaseIngestor`
+embeds them into an in-memory `SimpleVectorStore` on `ApplicationReadyEvent`, and
+`KnowledgeChatClientFactory` builds a `ChatClient` with a `QuestionAnswerAdvisor` — one per view
+instance, because the client owns the conversation memory. Ingestion is off in tests via
+`app.rag.ingest-on-startup=false` in `src/test/resources/application.properties`; keep it that way,
+because `mvn test` must never contact Ollama. `src/test/resources/application.properties` REPLACES
+`src/main/resources/application.properties` during tests rather than merging with it (Spring Boot
+loads only the first `application.properties` it finds on the classpath, and `target/test-classes`
+precedes `target/classes` there), so anything a test needs from the main file must be repeated in the
+test one. `KnowledgeBaseIngestor.ingest()` catches and logs ingestion failures instead of letting them
+propagate: an uncaught exception from an `ApplicationReadyEvent` listener is a startup failure that
+closes the whole context, so `/knowledge` degrades to having no documents to retrieve rather than
+taking `/chat-bot` and every other view down with it. `KnowledgeTools` registers `list_documents` and
+`read_document` on the same client: retrieval answers questions about document *content*, but a
+question about the corpus itself ("which documents exist?", "summarise the handbook") is unanswerable
+from excerpts the model only received because they were similar to that question. Both tools return an
+explanatory string rather than throwing when the corpus cannot be read — a tool that throws gives the
+model nothing to act on. The document list is also appended to every request by
+`KnowledgeChatClientFactory.systemPrompt()`, rendered by that same `list_documents` tool: whether the
+model *calls* a tool is its own decision, and it skips the call whenever the attached excerpts look
+sufficient, which made it deny the existence of documents those excerpts happened not to come from.
+Pass `systemPrompt()` to `AIOrchestrator`, never the bare `SYSTEM_PROMPT` constant.
+
 **Encapsulation boundary.** Repositories and their `@Transactional` boundaries stay package-private (`TaskRepository`); the `@Service` is the only public entry point; views take it via constructor injection. Views themselves are package-private classes.
 
 **Routing and navigation are convention-driven.** `MainLayout` carries `@Layout`, so it wraps every route automatically — no per-view `layout =` attribute. The side nav is built from `MenuConfiguration.getMenuEntries()`, so annotating a view with `@Menu(order, icon, title)` is all that is needed for it to appear in the drawer. Icons ending in `.svg` resolve to files under `src/main/resources/META-INF/resources/icons/`.

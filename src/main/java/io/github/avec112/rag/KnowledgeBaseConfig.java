@@ -1,0 +1,34 @@
+package io.github.avec112.rag;
+
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+class KnowledgeBaseConfig {
+
+    /**
+     * An in-memory store: the corpus is small and re-embedding on restart costs seconds.
+     * Swapping in pgvector later is a change to this method alone.
+     */
+    @Bean
+    VectorStore knowledgeVectorStore(EmbeddingModel embeddingModel) {
+        return SimpleVectorStore.builder(embeddingModel).build();
+    }
+
+    @Bean
+    KnowledgeTools knowledgeTools(
+            @Value("${app.rag.documents-location:classpath:knowledge/*.md}") String locationPattern) {
+        return new KnowledgeTools(new KnowledgeDocumentReader(locationPattern));
+    }
+
+    @Bean
+    KnowledgeChatClientFactory knowledgeChatClientFactory(ChatModel chatModel, VectorStore vectorStore,
+                                                         KnowledgeTools knowledgeTools) {
+        return new KnowledgeChatClientFactory(chatModel, vectorStore, knowledgeTools);
+    }
+}
