@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,18 +34,29 @@ public final class KnowledgeDocumentReader {
     }
 
     public List<Document> read() {
-        var resolver = new PathMatchingResourcePatternResolver();
         var documents = new ArrayList<Document>();
+        readRaw().forEach((fileName, markdown) -> documents.addAll(parse(fileName, markdown)));
+        return documents;
+    }
+
+    /**
+     * Reads the same documents whole, keyed by file name in resolution order.
+     * Retrieval hands the model single sections; a question like "summarise the handbook" needs
+     * the entire file, which is what this returns.
+     */
+    public Map<String, String> readRaw() {
+        var resolver = new PathMatchingResourcePatternResolver();
+        var contents = new LinkedHashMap<String, String>();
         try {
             for (var resource : resolver.getResources(locationPattern)) {
                 var fileName = Objects.requireNonNull(resource.getFilename(),
                         () -> "Resource without a file name: " + resource);
-                documents.addAll(parse(fileName, resource.getContentAsString(StandardCharsets.UTF_8)));
+                contents.put(fileName, resource.getContentAsString(StandardCharsets.UTF_8));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read knowledge documents from " + locationPattern, e);
         }
-        return documents;
+        return contents;
     }
 
     static List<Document> parse(String fileName, String markdown) {

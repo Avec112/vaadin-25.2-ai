@@ -159,6 +159,26 @@ literal filenames, matching the system prompt's `(source: time-off-policy.md)` e
 something to cite (`QuestionAnswerAdvisor` sends only `Document::getText` to the model; the source
 metadata by itself never reaches the prompt).
 
+**Questions about the corpus itself need tools, not retrieval.** Similarity search only ever attaches
+the sections closest to the question asked, so "which documents do you have?" used to be answered from
+whatever handful of excerpts happened to be attached — the assistant would confidently report three
+documents when there are five. No amount of tuning fixes that: the other two files were never in front
+of it. `KnowledgeTools` therefore registers two tools on the chat client:
+
+- `list_documents` — every document with its title and section headings.
+- `read_document(fileName)` — one whole document, for questions that need the full text rather than
+  excerpts, such as summarising it.
+
+Both were verified against a real `qwen3`: asked "There is 5 documents it seems.", the assistant now
+calls `list_documents` and reports all five files with all 31 sections; asked to summarise the employee
+handbook, it calls `read_document`. Note this makes tool support a hard requirement for the chat model
+— though `AIOrchestrator` already required it for its own `get_session_context` tool, so the set of
+usable models is unchanged.
+
+One prompt detail earned its place: without an explicit instruction to reproduce the tool's output in
+full, `qwen3` abbreviated the listing to three or four sections per document and blended it with the
+retrieved excerpts. The system prompt now says not to shorten the list or merge it with the excerpts.
+
 **Tuning.** `TOP_K` and `SIMILARITY_THRESHOLD` in
 `src/main/java/io/github/avec112/rag/KnowledgeChatClientFactory.java` control how much context is
 retrieved. Too high a threshold and good questions retrieve nothing; too low and every question

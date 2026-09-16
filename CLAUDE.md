@@ -41,7 +41,12 @@ precedes `target/classes` there), so anything a test needs from the main file mu
 test one. `KnowledgeBaseIngestor.ingest()` catches and logs ingestion failures instead of letting them
 propagate: an uncaught exception from an `ApplicationReadyEvent` listener is a startup failure that
 closes the whole context, so `/knowledge` degrades to having no documents to retrieve rather than
-taking `/chat-bot` and every other view down with it.
+taking `/chat-bot` and every other view down with it. `KnowledgeTools` registers `list_documents` and
+`read_document` on the same client: retrieval answers questions about document *content*, but a
+question about the corpus itself ("which documents exist?", "summarise the handbook") is unanswerable
+from excerpts the model only received because they were similar to that question. Both tools return an
+explanatory string rather than throwing when the corpus cannot be read — a tool that throws gives the
+model nothing to act on.
 
 **Encapsulation boundary.** Repositories and their `@Transactional` boundaries stay package-private (`TaskRepository`); the `@Service` is the only public entry point; views take it via constructor injection. Views themselves are package-private classes.
 

@@ -33,14 +33,24 @@ public class KnowledgeChatClientFactory {
             If the context does not contain the answer, say that the company documents do not cover it
             and suggest who to ask. Never invent a policy, a number, or a document name.
             Keep answers short and concrete, and quote exact figures when the documents give them.
+
+            The excerpts attached to a question are only the sections retrieved for that question,
+            never the whole knowledge base. Never describe them as the complete set of documents.
+            Two tools give you the rest: call list_documents when asked which documents exist, how
+            many there are, or what the knowledge base covers, and call read_document when a
+            question needs a whole document rather than excerpts, such as summarising one.
+            When you list documents, reproduce every document and every section the tool returns.
+            Do not shorten the list, and do not merge it with the attached excerpts.
             """;
 
     private final ChatModel chatModel;
     private final VectorStore vectorStore;
+    private final KnowledgeTools knowledgeTools;
 
-    KnowledgeChatClientFactory(ChatModel chatModel, VectorStore vectorStore) {
+    KnowledgeChatClientFactory(ChatModel chatModel, VectorStore vectorStore, KnowledgeTools knowledgeTools) {
         this.chatModel = chatModel;
         this.vectorStore = vectorStore;
+        this.knowledgeTools = knowledgeTools;
     }
 
     /**
@@ -68,6 +78,9 @@ public class KnowledgeChatClientFactory {
                 .defaultAdvisors(advisors -> advisors
                         .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build(), retrieval)
                         .param(ChatMemory.CONVERSATION_ID, conversationId))
+                // Retrieval answers questions about content; these answer questions about the
+                // corpus itself, which similarity search structurally cannot.
+                .defaultTools(knowledgeTools)
                 .build();
     }
 }
