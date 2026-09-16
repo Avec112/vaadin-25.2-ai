@@ -165,7 +165,7 @@ requirement.
 `KnowledgeChatView`, package-private, in `io.github.avec112.rag.ui`:
 
 - `@Route("knowledge")`, `@PageTitle("Knowledge Base")`,
-  `@Menu(order = 1, icon = "vaadin:book", title = "Knowledge Base")`.
+  `@Menu(order = 2, icon = "vaadin:book", title = "Knowledge Base")` — order 1 is taken by `TaskListView`.
 - Same layout as `AiChatView`: `ViewTitle`, an expanding `MessageList` with Markdown on,
   and a full-width `MessageInput`.
 - Component fields stay package-private and `final`, per the project's testing convention.
@@ -204,12 +204,16 @@ gains a short note about the `rag` package and the corpus location.
 
 ## Risks
 
-- **Advisors through `SpringAILLMProvider`.** The design assumes `SpringAILLMProvider`
-  calls the injected `ChatClient` in a way that preserves its default advisors. This is
-  the first thing implementation verifies, before any corpus is written. If advisors are
-  dropped, the fallback is to retrieve explicitly in the view's provider wrapper and pass
-  the retrieved sections in the system message — more code, same demo, no change to the
-  corpus or the tests.
+- **Advisors through `SpringAILLMProvider`** — resolved before planning, by reading the
+  Vaadin sources jar. `getPromptSpec` calls `chatClient.prompt()`, so default advisors are
+  preserved and the orchestrator's system prompt arrives per request via `.system(...)`.
+  No fallback needed.
+- **Chat memory is the caller's job** — found while resolving the above. The `(ChatClient)`
+  constructor sets `hasManagedMemory = false`, so the provider adds no memory advisor and
+  never sets the `ChatMemory.CONVERSATION_ID` param that `BaseChatMemoryAdvisor` asserts on.
+  The retrieval `ChatClient` therefore supplies a `MessageChatMemoryAdvisor` and that param
+  itself, and is built **once per view instance** — a shared singleton would put every user
+  of the app in one conversation.
 - **Similarity threshold.** Too high and good questions retrieve nothing; too low and
   every question retrieves noise. Tuned against the demo questions, with the constants
   kept together for a one-line adjustment.
