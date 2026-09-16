@@ -9,6 +9,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 
+import java.util.UUID;
+
 /**
  * Builds the retrieval-augmented chat client for the knowledge base view.
  * Retrieval tuning lives here so there is one place to adjust it.
@@ -21,9 +23,8 @@ public class KnowledgeChatClientFactory {
     /** Below this cosine similarity a section is treated as irrelevant rather than weak evidence. */
     static final double SIMILARITY_THRESHOLD = 0.3;
 
+    /** How many recent messages the client remembers before older turns are dropped. */
     static final int MEMORY_MAX_MESSAGES = 20;
-
-    private static final String CONVERSATION_ID = "default";
 
     public static final String SYSTEM_PROMPT = """
             You are the internal assistant for Harborlight Systems Inc.
@@ -56,10 +57,17 @@ public class KnowledgeChatClientFactory {
                         .similarityThreshold(SIMILARITY_THRESHOLD)
                         .build())
                 .build();
+        // Conversation isolation must not depend on the ChatMemory repository being per-instance:
+        // a shared constant here would work today only because MessageWindowChatMemory.builder()
+        // defaults to an in-memory, per-instance repository. Injecting an autoconfigured, shared
+        // ChatMemoryRepository later would silently merge every user's conversation onto this one
+        // id, with no test failing. A fresh id per client closes that gap regardless of which
+        // repository backs the memory.
+        var conversationId = UUID.randomUUID().toString();
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(advisors -> advisors
                         .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build(), retrieval)
-                        .param(ChatMemory.CONVERSATION_ID, CONVERSATION_ID))
+                        .param(ChatMemory.CONVERSATION_ID, conversationId))
                 .build();
     }
 }

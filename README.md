@@ -128,16 +128,17 @@ is embedded and stored in an in-memory vector store. When you ask a question, th
 sections are retrieved and placed in the prompt before the model answers — retrieval-augmented
 generation, with no fine-tuning and no data leaving your machine.
 
-This needs an embedding model in addition to the chat model:
+This needs an embedding model in addition to the chat model, and **you must pull it yourself first**:
 
 ```bash
 ollama pull nomic-embed-text
 ```
 
-`spring.ai.ollama.init.pull-model-strategy=when_missing` in `application.properties` pulls it
-automatically on first start, so the manual pull is optional — it just makes the first start faster.
-Ingestion was confirmed against a real, locally running Ollama in this environment: startup logged
-`Indexed 31 sections from 5 documents in 1807 ms`.
+`spring.ai.ollama.init.pull-model-strategy=never` in `application.properties`, deliberately: the
+alternative, `when_missing`, runs its model-existence check during bean initialization with no error
+handling of its own, so with Ollama unreachable it throws at startup and takes the whole app down —
+every view, not just the AI ones. Ingestion was confirmed against a real, locally running Ollama in
+this environment: startup logged `Indexed 31 sections from 5 documents in 1807 ms`.
 
 **The demo.** Ask the same question in `/chat-bot` and in `/knowledge`. The company is invented, so no
 model can know these answers from pretraining — a correct, sourced answer is proof the retrieval
@@ -147,12 +148,16 @@ the UI uses) against a real, locally running `qwen3` and `nomic-embed-text`:
 | Question | `/chat-bot` | `/knowledge` |
 |---|---|---|
 | How many vacation days do employees get? | Hedges, then guesses "between 10–20 vacation days per year" | **27** vacation days per calendar year (source: time-off-policy.md) |
-| What is the VPN called? | Hedges: guesses it might be "a typo, a fictional reference, or a less-known provider" | **Lighthouse** (source: Harborlight Systems IT and Security Policy — VPN Access) |
-| What is the mileage rate? | Quotes the 2023 US IRS public mileage rate (58.5 cents/mile) instead of Harborlight's own rate | **USD 0.62 per mile** (source: Harborlight Systems Travel and Expenses — Mileage) |
-| What is the annual bonus scheme? | *(not asked — this question is only exercised in `/knowledge`)* | Correctly says the documents do not cover it |
+| What is the VPN called? | Hedges: guesses it might be "a typo, a fictional reference, or a less-known provider" | **Lighthouse** (source: it-security-policy.md) |
+| What is the mileage rate? | Quotes the 2023 US IRS public mileage rate (58.5 cents/mile) instead of Harborlight's own rate | **USD 0.62 per mile** (source: travel-and-expenses.md) |
+| What is the annual bonus scheme? | *(not asked — this question is only exercised in `/knowledge`)* | Says the documents do not specify one and suggests asking HR or your team lead |
 
 All four `/knowledge` answers are exactly what this demo is meant to show: a specific, sourced figure
-the base model could not know, or an honest admission that the documents don't say.
+the base model could not know, or an honest admission that the documents don't say. The citations are
+literal filenames, matching the system prompt's `(source: time-off-policy.md)` example exactly — see
+`KnowledgeDocumentReader`, which embeds the filename directly into each chunk's text so the model has
+something to cite (`QuestionAnswerAdvisor` sends only `Document::getText` to the model; the source
+metadata by itself never reaches the prompt).
 
 **Tuning.** `TOP_K` and `SIMILARITY_THRESHOLD` in
 `src/main/java/io/github/avec112/rag/KnowledgeChatClientFactory.java` control how much context is
@@ -165,9 +170,10 @@ retrieves noise. Both were tuned against the demo questions above:
   it regardless of `SIMILARITY_THRESHOLD` — threshold only prunes *within* the selected window, it
   never enlarges it. Widening to 8 reaches rank 7 and fixed the VPN question, and the other three
   answers (including the bonus-scheme honest miss) held with no regressions.
-- `SIMILARITY_THRESHOLD` is `0.3`, lower than the original `0.5`, so it still does real pruning work at
-  the wider `TOP_K = 8` window instead of admitting every low-relevance section that window now
-  reaches.
+- `SIMILARITY_THRESHOLD` is `0.3`, lowered from `0.5`. On this corpus it is currently inert: every
+  section scores between ≈0.39 and ≈0.57 for the tested queries, so neither value excluded anything.
+  It is kept low deliberately, as headroom for future documents whose best match falls in the 0.3–0.5
+  band.
 
 **Adding your own documents.** Drop a Markdown file with `#` and `##` headings into
 `src/main/resources/knowledge/` and restart. Each `##` section becomes one retrievable chunk.

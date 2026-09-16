@@ -15,7 +15,7 @@ class KnowledgeChatViewTest extends SpringBrowserlessTest {
 
         assertThat(view.messageList.isMarkdown()).isTrue();
         assertThat(view.messageList.getItems()).isEmpty();
-        assertThat(view.messageInput.isVisible()).isTrue();
+        assertThat(view.messageInput.isAttached()).isTrue();
     }
 
     @Test

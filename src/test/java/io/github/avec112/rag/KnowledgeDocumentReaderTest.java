@@ -45,7 +45,7 @@ class KnowledgeDocumentReaderTest {
         var documents = KnowledgeDocumentReader.parse("sample-policy.md", MARKDOWN);
 
         assertThat(documents.get(1).getText())
-                .startsWith("Sample Policy — First Section")
+                .startsWith("Sample Policy — First Section (source: sample-policy.md)")
                 .contains("First section body.");
     }
 

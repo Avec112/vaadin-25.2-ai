@@ -34,7 +34,14 @@ embeds them into an in-memory `SimpleVectorStore` on `ApplicationReadyEvent`, an
 `KnowledgeChatClientFactory` builds a `ChatClient` with a `QuestionAnswerAdvisor` — one per view
 instance, because the client owns the conversation memory. Ingestion is off in tests via
 `app.rag.ingest-on-startup=false` in `src/test/resources/application.properties`; keep it that way,
-because `mvn test` must never contact Ollama.
+because `mvn test` must never contact Ollama. `src/test/resources/application.properties` REPLACES
+`src/main/resources/application.properties` during tests rather than merging with it (Spring Boot
+loads only the first `application.properties` it finds on the classpath, and `target/test-classes`
+precedes `target/classes` there), so anything a test needs from the main file must be repeated in the
+test one. `KnowledgeBaseIngestor.ingest()` catches and logs ingestion failures instead of letting them
+propagate: an uncaught exception from an `ApplicationReadyEvent` listener is a startup failure that
+closes the whole context, so `/knowledge` degrades to having no documents to retrieve rather than
+taking `/chat-bot` and every other view down with it.
 
 **Encapsulation boundary.** Repositories and their `@Transactional` boundaries stay package-private (`TaskRepository`); the `@Service` is the only public entry point; views take it via constructor injection. Views themselves are package-private classes.
 

@@ -77,7 +77,10 @@ public final class KnowledgeDocumentReader {
         if (text.isEmpty()) {
             return;
         }
-        var content = "%s — %s%n%n%s".formatted(title, section, text);
+        // QuestionAnswerAdvisor builds its context from Document::getText alone - metadata never
+        // reaches the prompt - so the source filename the system prompt asks the model to cite has
+        // to be embedded directly in the text itself, or there is nothing for the model to cite.
+        var content = "%s — %s (source: %s)%n%n%s".formatted(title, section, fileName, text);
         documents.add(new Document(content, Map.of(
                 METADATA_SOURCE, fileName,
                 METADATA_TITLE, title,

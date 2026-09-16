@@ -46,18 +46,28 @@ class KnowledgeBaseIngestor {
 
     int ingest() {
         var started = System.currentTimeMillis();
-        var documents = reader.read();
-        if (documents.isEmpty()) {
-            log.warn("No knowledge documents found - the knowledge base will have nothing to retrieve");
+        try {
+            var documents = reader.read();
+            if (documents.isEmpty()) {
+                log.warn("No knowledge documents found - the knowledge base will have nothing to retrieve");
+                return 0;
+            }
+            vectorStore.add(documents);
+            var sources = documents.stream()
+                    .map(document -> document.getMetadata().get(KnowledgeDocumentReader.METADATA_SOURCE))
+                    .distinct()
+                    .count();
+            log.info("Indexed {} sections from {} documents in {} ms",
+                    documents.size(), sources, System.currentTimeMillis() - started);
+            return documents.size();
+        } catch (RuntimeException e) {
+            // This runs from an ApplicationReadyEvent listener: an uncaught exception here is treated
+            // by SpringApplication as a startup failure and closes the whole context, taking every
+            // other view down with it (not just /knowledge). Degrade instead of dying: the right
+            // failure mode for a demo someone clones with Ollama unreachable is "app starts, AI
+            // features degrade", not "app refuses to start at all".
+            log.error("Knowledge base ingestion failed - /knowledge will have nothing to retrieve", e);
             return 0;
         }
-        vectorStore.add(documents);
-        var sources = documents.stream()
-                .map(document -> document.getMetadata().get(KnowledgeDocumentReader.METADATA_SOURCE))
-                .distinct()
-                .count();
-        log.info("Indexed {} sections from {} documents in {} ms",
-                documents.size(), sources, System.currentTimeMillis() - started);
-        return documents.size();
     }
 }

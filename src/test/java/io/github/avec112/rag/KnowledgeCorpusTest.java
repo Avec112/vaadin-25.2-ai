@@ -25,13 +25,13 @@ class KnowledgeCorpusTest {
 
     @Test
     void no_section_exceeds_the_chunk_cap() {
-        assertThat(corpus).allSatisfy(document ->
+        assertThat(corpus).isNotEmpty().allSatisfy(document ->
                 assertThat(document.getText()).hasSizeLessThanOrEqualTo(KnowledgeDocumentReader.MAX_SECTION_CHARS));
     }
 
     @Test
     void the_company_is_named_consistently() {
-        assertThat(corpus).allSatisfy(document -> assertThat(document.getText()).doesNotContain("Harborlight Systems AS"));
+        assertThat(corpus).isNotEmpty().allSatisfy(document -> assertThat(document.getText()).doesNotContain("Harborlight Systems AS"));
         assertThat(corpusText()).contains("Harborlight Systems Inc.");
     }
 
