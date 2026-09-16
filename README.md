@@ -205,10 +205,43 @@ retrieves noise. Both were tuned against the demo questions above:
   it regardless of `SIMILARITY_THRESHOLD` — threshold only prunes *within* the selected window, it
   never enlarges it. Widening to 8 reaches rank 7 and fixed the VPN question, and the other three
   answers (including the bonus-scheme honest miss) held with no regressions.
-- `SIMILARITY_THRESHOLD` is `0.3`, lowered from `0.5`. On this corpus it is currently inert: every
-  section scores between ≈0.39 and ≈0.57 for the tested queries, so neither value excluded anything.
-  It is kept low deliberately, as headroom for future documents whose best match falls in the 0.3–0.5
-  band.
+- `SIMILARITY_THRESHOLD` is `0.3`, lowered from `0.5`. On this corpus it is currently inert: the
+  sections that answer a question score 0.48–0.83, and nothing tested has been excluded by either
+  value. It is kept low deliberately, as headroom for questions whose best match scores poorly — the
+  awkward phrasings below land near 0.48.
+
+**Measured and rejected: Nomic's task prefixes.** `nomic-embed-text` is trained with a task
+instruction in front of its input (`search_document:` for stored passages, `search_query:` for the
+question), and the obvious guess is that adding them would sharpen retrieval enough to bring `TOP_K`
+back down to 4. It was implemented and measured against the live model, comparing the rank of the
+correct section with and without prefixes:
+
+| Query | Without | With |
+|---|---|---|
+| How many vacation days do employees get? | rank 1 (0.7901) | rank 1 (0.8283) |
+| What is the mileage reimbursement rate? | rank 1 (0.7647) | rank 1 (0.8093) |
+| How long is parental leave? | rank 1 (0.7909) | rank 1 (0.8286) |
+| What is the hardware allowance? | rank 1 (0.7611) | rank 1 (0.8185) |
+| What is the VPN called? | rank 3 (0.4819) | **rank 8** (0.5452) |
+
+Prefixes lift every score by roughly 0.04–0.06 but change no rank that mattered, and they pushed the
+one weak query from rank 3 to rank 8 — the last slot inside the window. Net negative, so the code was
+removed rather than kept behind a flag.
+
+**What actually explains the weak query: phrasing, not prefixes.** The same section, same corpus,
+three phrasings:
+
+| Query | Rank of `it-security-policy.md — VPN Access` |
+|---|---|
+| "What is the VPN **called**?" | 3 (top hit: `employee-handbook.md — Job Levels`) |
+| "**Which VPN do we use for remote access?**" | **1** (0.6099) |
+| "**VPN access**" | **1** (0.5622) |
+
+`nomic-embed-text` handles descriptive queries well and "what is X called?" badly — that naming
+phrasing pulls toward the Job Levels section, which is dense with titles and names. This is a
+property of the small embedding model, and it is the real reason `TOP_K` is 8 rather than 4: the
+window has to be wide enough to survive an awkwardly phrased question. A larger embedding model, or
+query rewriting before retrieval, would be the next thing to try — not prefixes.
 
 **Adding your own documents.** Drop a Markdown file with `#` and `##` headings into
 `src/main/resources/knowledge/` and restart. Each `##` section becomes one retrievable chunk.
