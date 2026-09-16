@@ -35,7 +35,7 @@ The switch is the `spring.ai.model.chat` property: it decides which Spring AI au
 This is what the project ships with. Install [Ollama](https://ollama.com/), pull a model, and keep it running:
 
 ```bash
-ollama pull mistral
+ollama pull qwen3
 ollama serve
 ```
 
@@ -44,7 +44,7 @@ Then in `src/main/resources/application.properties`:
 ```properties
 spring.ai.model.chat=ollama
 spring.ai.ollama.base-url=http://localhost:11434
-spring.ai.ollama.chat.model=mistral
+spring.ai.ollama.chat.model=qwen3
 ```
 
 **Where do the model names come from?** Not from any Java class. The string is passed verbatim to Ollama's REST API, so the valid values are exactly what `ollama list` prints — name plus tag, e.g. `mistral:latest` or `llama3.1:8b`. Dropping the tag works when `:latest` exists, so `mistral` is fine. Pull more from [ollama.com/library](https://ollama.com/library).
@@ -65,7 +65,16 @@ If you leave `spring.ai.ollama.chat.model` unset, Spring AI falls back to **`mis
 > registry.ollama.ai/library/deepseek-r1:latest does not support tools
 > ```
 >
-> **`deepseek-r1` does not work with this chat view** for that reason, even though `ollama run deepseek-r1` works fine in a terminal. Pick a tool-capable model such as `mistral` or `llama3.1:8b`. Check with `ollama show <model>` — the capabilities list must include `tools`.
+> **`deepseek-r1` does not work with this chat view** for that reason, even though `ollama run deepseek-r1` works fine in a terminal. Check any model with `ollama show <model>` — the capabilities list must include `tools`:
+>
+> | Model | Capabilities | Works in this chat view |
+> |---|---|---|
+> | `qwen3` | completion, tools, thinking | yes |
+> | `mistral` | completion, tools | yes |
+> | `llama3.1:8b` | completion, tools | yes |
+> | `deepseek-r1` | completion, thinking | **no** — 400 Bad Request |
+>
+> Note that `qwen3` and `deepseek-r1` are both reasoning models that think before answering. They differ only in `tools`, which is what decides whether they work here — the thinking phase was never the problem.
 >
 > This is a Vaadin `AIOrchestrator` requirement, **not** a Spring AI one — Spring AI itself talks to tool-less models happily. To use such a model, opt out of the session context tool when building the orchestrator:
 >
