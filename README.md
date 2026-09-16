@@ -47,6 +47,15 @@ spring.ai.ollama.base-url=http://localhost:11434
 spring.ai.ollama.chat.model=mistral
 ```
 
+**Where do the model names come from?** Not from any Java class. The string is passed verbatim to Ollama's REST API, so the valid values are exactly what `ollama list` prints — name plus tag, e.g. `mistral:latest` or `llama3.1:8b`. Dropping the tag works when `:latest` exists, so `mistral` is fine. Pull more from [ollama.com/library](https://ollama.com/library).
+
+> **Two lists that are easy to confuse:**
+>
+> - `org.springframework.ai.model.SpringAIModels` lists **provider ids** — `ollama`, `openai`, `anthropic`, `deepseek` — and those are the values for `spring.ai.model.chat`. They are *not* model names. `SpringAIModels.DEEPSEEK` means "DeepSeek's own cloud API as a provider", not a model you can name here.
+> - `org.springframework.ai.ollama.api.OllamaModel` holds convenience constants (`mistral`, `llama3.2`, `qwq`, …) but is **not** a whitelist — nothing validates against it. `deepseek-r1` is absent from that enum yet works fine as a model name.
+>
+> A wrong name is not rejected by Spring; Ollama answers `model '<name>' not found`.
+
 If you leave `spring.ai.ollama.chat.model` unset, Spring AI falls back to **`mistral`** (`OllamaChatOptions` defaults to `OllamaModel.MISTRAL`), which is why the chat works out of the box once you have that model pulled.
 
 > **The model must support tool calling.** `AIOrchestrator` registers a built-in `get_session_context` tool — if you don't call `withMetadata(...)`, `build()` installs a default context supplier, so the tool is sent on every request. Models without tool support reject it:
