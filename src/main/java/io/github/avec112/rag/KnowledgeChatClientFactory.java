@@ -19,7 +19,7 @@ public class KnowledgeChatClientFactory {
     static final int TOP_K = 4;
 
     /** Below this cosine similarity a section is treated as irrelevant rather than weak evidence. */
-    static final double SIMILARITY_THRESHOLD = 0.5;
+    static final double SIMILARITY_THRESHOLD = 0.3;
 
     static final int MEMORY_MAX_MESSAGES = 20;
 

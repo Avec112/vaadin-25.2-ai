@@ -139,16 +139,39 @@ automatically on first start, so the manual pull is optional — it just makes t
 Ingestion was confirmed against a real, locally running Ollama in this environment: startup logged
 `Indexed 31 sections from 5 documents in 1807 ms`.
 
-**The demo.** Ask the same question in `/chat-bot` and in `/knowledge`: the plain chat bot has to
-guess, invent, or hedge, while the knowledge base view grounds its answer in the retrieved sections,
-naming the source file it used, or says outright that the company documents do not cover it. The
-company is invented, so no model can know these answers from pretraining. A correct, sourced answer
-is proof the retrieval happened.
+**The demo.** Ask the same question in `/chat-bot` and in `/knowledge`. The company is invented, so no
+model can know these answers from pretraining — a correct, sourced answer is proof the retrieval
+happened. The table below was captured by driving each view's `ChatClient` directly (the same beans
+the UI uses) against a real, locally running `qwen3` and `nomic-embed-text`:
+
+| Question | `/chat-bot` | `/knowledge` |
+|---|---|---|
+| How many vacation days do employees get? | Hedges, then guesses "between 10–20 vacation days per year" | **27** vacation days per calendar year (source: time-off-policy.md) |
+| What is the VPN called? | Hedges: guesses it might be "a typo, a fictional reference, or a less-known provider" | Hedges: says the documents do not mention it — see "Known gap" below |
+| What is the mileage rate? | Quotes the 2023 US IRS public mileage rate (58.5 cents/mile) instead of Harborlight's own rate | **USD 0.62 per mile** (source: Harborlight Systems Travel and Expenses — Mileage) |
+| What is the annual bonus scheme? | *(not asked — this question is only exercised in `/knowledge`)* | Correctly says the documents do not cover it |
+
+Three of the four `/knowledge` answers are exactly what this demo is meant to show: a specific, sourced
+figure the base model could not know, or an honest admission that the documents don't say. The VPN
+question currently falls back to a hedge instead — a real, observed gap, not a hypothetical one.
+
+**Known gap: the VPN question.** `/knowledge` answers "the company documents do not mention" the VPN
+name, even though `it-security-policy.md` states it directly under `## VPN Access` ("the company VPN,
+called Lighthouse"). Direct inspection of the vector store explains why: for this question, that
+section ranks 7th of 31 by cosine similarity (score ≈ 0.50), and `TOP_K = 4` only ever hands the model
+the top four sections — none of which is the right one here. `SIMILARITY_THRESHOLD` cannot fix this on
+its own: it only prunes weak matches out of the four already selected; it never enlarges that set.
+Lowering it from 0.5 to 0.3 changed nothing for this question, for exactly that reason, while causing
+no regressions on the other three. Raising `TOP_K` is the more likely fix, but that's a design change
+beyond retrieval tuning.
 
 **Tuning.** `TOP_K` and `SIMILARITY_THRESHOLD` in
 `src/main/java/io/github/avec112/rag/KnowledgeChatClientFactory.java` control how much context is
 retrieved. Too high a threshold and good questions retrieve nothing; too low and every question
-retrieves noise.
+retrieves noise. `SIMILARITY_THRESHOLD` is currently `0.3`: at both `0.5` (the original value) and
+`0.3` the three grounded answers above came out identical, so `0.3` was kept as the safer floor with
+no observed downside. As the "Known gap" note shows, threshold alone cannot guarantee every question
+in a corpus gets retrieved — `TOP_K` and section granularity matter too.
 
 **Adding your own documents.** Drop a Markdown file with `#` and `##` headings into
 `src/main/resources/knowledge/` and restart. Each `##` section becomes one retrievable chunk.
