@@ -1,5 +1,6 @@
 package io.github.avec112.rag;
 
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -16,5 +17,10 @@ class KnowledgeBaseConfig {
     @Bean
     VectorStore knowledgeVectorStore(EmbeddingModel embeddingModel) {
         return SimpleVectorStore.builder(embeddingModel).build();
+    }
+
+    @Bean
+    KnowledgeChatClientFactory knowledgeChatClientFactory(ChatModel chatModel, VectorStore vectorStore) {
+        return new KnowledgeChatClientFactory(chatModel, vectorStore);
     }
 }
