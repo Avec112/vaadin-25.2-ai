@@ -28,6 +28,14 @@ There is **no `production` profile**: `vaadin-maven-plugin:build-frontend` is bo
 
 **Package-by-feature.** Each feature is a top-level package under `io.github.avec112` containing its entity, repository, and service, with UI in a nested `ui` subpackage (`examplefeature/` + `examplefeature/ui/`). `base/ui/` holds cross-cutting UI (`MainLayout`, `ViewTitle`). `examplefeature` is scaffolding meant to be deleted once real features exist.
 
+**RAG feature.** `rag/` holds the knowledge base: `KnowledgeDocumentReader` splits
+`src/main/resources/knowledge/*.md` into one document per `##` section, `KnowledgeBaseIngestor`
+embeds them into an in-memory `SimpleVectorStore` on `ApplicationReadyEvent`, and
+`KnowledgeChatClientFactory` builds a `ChatClient` with a `QuestionAnswerAdvisor` — one per view
+instance, because the client owns the conversation memory. Ingestion is off in tests via
+`app.rag.ingest-on-startup=false` in `src/test/resources/application.properties`; keep it that way,
+because `mvn test` must never contact Ollama.
+
 **Encapsulation boundary.** Repositories and their `@Transactional` boundaries stay package-private (`TaskRepository`); the `@Service` is the only public entry point; views take it via constructor injection. Views themselves are package-private classes.
 
 **Routing and navigation are convention-driven.** `MainLayout` carries `@Layout`, so it wraps every route automatically — no per-view `layout =` attribute. The side nav is built from `MenuConfiguration.getMenuEntries()`, so annotating a view with `@Menu(order, icon, title)` is all that is needed for it to appear in the drawer. Icons ending in `.svg` resolve to files under `src/main/resources/META-INF/resources/icons/`.

@@ -119,6 +119,42 @@ export OPENAI_API_KEY=sk-...
 
 ---
 
+## Ask the knowledge base (RAG)
+
+The **Knowledge Base** view at `/knowledge` answers questions about a fictional company,
+**Harborlight Systems Inc.**, whose handbook, time-off policy, IT security policy, travel rules and
+onboarding guide live in `src/main/resources/knowledge/`. At startup each `##` section of those files
+is embedded and stored in an in-memory vector store. When you ask a question, the four most similar
+sections are retrieved and placed in the prompt before the model answers — retrieval-augmented
+generation, with no fine-tuning and no data leaving your machine.
+
+This needs an embedding model in addition to the chat model:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+`spring.ai.ollama.init.pull-model-strategy=when_missing` in `application.properties` pulls it
+automatically on first start, so the manual pull is optional — it just makes the first start faster.
+Ingestion was confirmed against a real, locally running Ollama in this environment: startup logged
+`Indexed 31 sections from 5 documents in 1807 ms`.
+
+**The demo.** Ask the same question in `/chat-bot` and in `/knowledge`: the plain chat bot has to
+guess, invent, or hedge, while the knowledge base view grounds its answer in the retrieved sections,
+naming the source file it used, or says outright that the company documents do not cover it. The
+company is invented, so no model can know these answers from pretraining. A correct, sourced answer
+is proof the retrieval happened.
+
+**Tuning.** `TOP_K` and `SIMILARITY_THRESHOLD` in
+`src/main/java/io/github/avec112/rag/KnowledgeChatClientFactory.java` control how much context is
+retrieved. Too high a threshold and good questions retrieve nothing; too low and every question
+retrieves noise.
+
+**Adding your own documents.** Drop a Markdown file with `#` and `##` headings into
+`src/main/resources/knowledge/` and restart. Each `##` section becomes one retrievable chunk.
+
+---
+
 ## Ask your AI assistant about Vaadin (optional)
 
 If you use Claude Code, Cursor, or another AI coding assistant, connect it to the **Vaadin MCP server** so it answers against real Vaadin docs and the exact API of your installed version — instead of guessing from outdated training data.
