@@ -16,7 +16,7 @@ mvn spring-boot:run
 
 Maven 3.9+ and JDK 25 are required (the Maven wrapper is not included in this project). The app opens **http://localhost:8080** in your browser automatically; disable that with `vaadin.launch-browser=false` in `src/main/resources/application.properties`.
 
-The first start takes ~30 seconds while Maven downloads dependencies. The start view is a **Chat Bot** — see [Choose your AI model](#choose-your-ai-model--local-or-cloud) below before you expect it to answer. The side nav also has a **Task List** demo at `/task-list`: a data grid (Description / Due Date / Creation Date), a Create button, and an empty-state message. When you see the nav drawer and those two views, you're running.
+The first start takes ~30 seconds while Maven downloads dependencies. The start view is a **Chat Bot** — see [Choose your AI model](#choose-your-ai-model--local-or-cloud) below before you expect it to answer. The side nav also has a **Knowledge Base** view at `/knowledge` — see [Ask the knowledge base (RAG)](#ask-the-knowledge-base-rag). When you see the nav drawer and those two views, you're running.
 
 > **Port 8080 already in use?** Stop the other process, or set `server.port=8081` in `src/main/resources/application.properties` and open that port instead.
 >
